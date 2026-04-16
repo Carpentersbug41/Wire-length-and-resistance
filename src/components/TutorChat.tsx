@@ -1,8 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, CheckCircle2 } from 'lucide-react';
-import { GoogleGenAI, Type } from '@google/genai';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 interface Message {
   role: 'user' | 'model';
@@ -41,64 +38,33 @@ export default function TutorChat({ wireLength, resistance, avgCollisions }: Tut
     setIsLoading(true);
 
     try {
-      const systemInstruction = `You are an AI tutor for City & Guilds 2365 Level 2 Electrical Installation learners. 
-You are guiding them through a simulation showing how wire length affects electrical resistance.
-
-Current simulation state:
-- Wire Length Multiplier: ${wireLength.toFixed(1)}x
-- Total Resistance: ${resistance} Ω
-- Average Collisions per Electron: ${avgCollisions > 0 ? Math.round(avgCollisions) : 'N/A'}
-
-CORE MISCONCEPTION TO ADDRESS:
-Learners often think electricity flows through a wire like water through an empty pipe. They don't realize electrons physically collide with metal atoms, and that a longer wire simply means *more atoms to hit*, causing more collisions and higher resistance.
-
-YOUR TUTORING LOOP:
-1. Predict: Ask what they think happens or will happen.
-2. Try / Observe: Ask them to change the wire length and observe the collisions and resistance.
-3. What changed?: Ask them what they saw.
-4. Why?: Ask them to explain why it changed based on the atoms and electrons.
-5. Refute & Correct: Briefly correct any wrong ideas using the visual evidence.
-6. Transfer: Ask one final check question.
-
-RULES:
-- Keep prompts short, clear, and plain-English.
-- Teach one idea at a time.
-- Do NOT give long lectures or give the answer immediately.
-- Ground everything in the visible app state (cyan electrons, red metal atoms, amber collisions, length slider).
-- Set isComplete to true ONLY when the learner has demonstrated a clear understanding that a longer wire has more resistance because the electrons have to travel past more atoms, resulting in more collisions.`;
-
       const contents = messages.map(m => ({
         role: m.role,
         parts: [{ text: m.text }]
       }));
       contents.push({ role: 'user', parts: [{ text: userMsg }] });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: contents,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              feedback: {
-                type: Type.STRING,
-                description: "Your short, conversational response to the user."
-              },
-              isComplete: {
-                type: Type.BOOLEAN,
-                description: "True if the user has demonstrated full understanding of the core concept."
-              }
-            },
-            required: ["feedback", "isComplete"]
-          }
-        }
+      const res = await fetch('/api/tutor', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: contents,
+          wireLength,
+          resistance,
+          avgCollisions
+        })
       });
 
-      if (response.text) {
-        const parsed = JSON.parse(response.text);
+      if (!res.ok) {
+        throw new Error('Failed to fetch from tutor API');
+      }
+
+      const data = await res.json();
+
+      if (data.text) {
+        const parsed = JSON.parse(data.text);
         setMessages(prev => [...prev, { role: 'model', text: parsed.feedback }]);
         if (parsed.isComplete) {
           setIsComplete(true);
