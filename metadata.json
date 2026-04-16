@@ -1,0 +1,6 @@
+{
+  "name": "Resistance Simulator",
+  "description": "Interactive simulator showing how wire length affects electrical resistance for City & Guilds 2365 Level 2.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
